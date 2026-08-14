@@ -1,20 +1,26 @@
 import time
 
-def run(duration, hz):
+def run(read, duration, hz):
 
     dt = 1.0 / hz
-    next_t = time.perf_counter()
+    t0 = next_t = time.perf_counter()
+    rows = []
 
-    while True:
+    while time.perf_counter() - t0 < duration:
 
+        rows.append((round(time.perf_counter() - t0, 3), read()))
         next_t += dt 
         sleep = next_t - time.perf_counter()
         if sleep > 0:
             time.sleep(sleep)
 
+    return rows
 
-print(run(5.0, 20))
+        
+
+# TODO: delete this after writing main and config
+print(run(lambda: 0.0, 5.0, 20))
 
 
-# For config file:
+# TODO: Add to config file:
 # duration, hz

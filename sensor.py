@@ -10,16 +10,11 @@ class Sensor:
             raise TimeoutError(f"Timeour error. Read took too long.")
         return self.true_d + random.gauss(0, 0.05)
 
-    def safe_read(default):
-        try:
-            read_sensor(self)
-        except (TimeoutError, OSError) as e:
-            # log error
-
-# Delete before finishing
+# TODO: delete this after writing main and config
 sensor = Sensor(2.0)
 print(sensor.read_sensor())
 
 
-# For config file:
-# true_d, default
+# TODO: Add to config file:
+# true_d
+
