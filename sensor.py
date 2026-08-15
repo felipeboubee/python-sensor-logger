@@ -1,4 +1,6 @@
 import random
+import config
+
 # Define sensor class and add Gaussian error to read. Raise exception on 5% of calls
 class Sensor:
 
@@ -8,13 +10,7 @@ class Sensor:
     def read_sensor(self):
         if random.random() < 0.05:
             raise TimeoutError(f"Timeour error. Read took too long.")
-        return self.true_d + random.gauss(0, 0.05)
-
-# TODO: delete this after writing main and config
-sensor = Sensor(2.0)
-print(sensor.read_sensor())
+        return self.true_d + random.gauss(mu=config.MU, sigma=config.SIGMA)
 
 
-# TODO: Add to config file:
-# true_d
 

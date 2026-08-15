@@ -15,4 +15,3 @@ def load_rows(path):
 
         return [(float(t), float(d)) for t, d in reader]    # parse strings to numbers
         
-# TODO: add to config: path

@@ -18,10 +18,3 @@ def run(read, duration, hz):
     return rows
 
         
-
-# TODO: delete this after writing main and config
-print(run(lambda: 0.0, 5.0, 20))
-
-
-# TODO: Add to config file:
-# duration, hz

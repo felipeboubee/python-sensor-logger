@@ -1,0 +1,8 @@
+DEFAULT = 99.0
+LO = 0
+HI = 10
+DURATION = 5.0
+HZ = 20
+TRUE_D = 2.0
+MU = 2.0
+SIGMA = 1.0
