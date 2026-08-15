@@ -19,7 +19,7 @@ def make_safe_reader(read, default, lo, hi):
             value = read()
 
         except (TimeoutError, OSError) as e:
-            log.warning(f"Sensor problem: {e}")
+            log.warning("Sensor problem: %s", e)
             return default
 
         # Reject invalid values
@@ -28,7 +28,7 @@ def make_safe_reader(read, default, lo, hi):
             return default
 
         if not math.isfinite(value):
-            log.warning(f"Sensor returned non-finite value: {value}")
+            log.warning("Sensor returned non-finite value: %.2f", value)
             return default
 
         # Clamp value to allowed range

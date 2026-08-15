@@ -6,6 +6,7 @@ def run(read, duration, hz):
     t0 = next_t = time.perf_counter()
     rows = []
 
+    # While elapsed time is smaller than duration, append timestamp, hold next_t deadline and sleep the remainder
     while time.perf_counter() - t0 < duration:
 
         rows.append((round(time.perf_counter() - t0, 3), read()))
