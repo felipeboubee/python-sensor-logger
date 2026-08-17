@@ -10,12 +10,11 @@ sensor failures without corrupting the record, and writes a CSV and a plot of th
   </picture>
 </p>
 
-The chart above is a real run, not an illustration — it is the exact `results/sensor_log.png`
-produced by `main.py` from the committed `results/sensor_log.csv`. The top panel is the record
-as written: the six spikes to 99 m are sensor read failures the logger caught, timestamped and
-recorded rather than crashed on. The bottom panel drops to the measured range, where those same
-failures appear as gaps, because on the full scale a 99 m sentinel compresses every real reading
-into an unreadable band at the bottom of the axis.
+Both panels come from `results/sensor_log.csv`, which is committed here, and were drawn by
+running `main.py`. The top panel is the record as written: the six spikes to 99 m are sensor
+read failures that the logger caught, timestamped and recorded. The bottom panel restricts
+the y-axis to the measured range, where those same failures appear as gaps. On the full
+scale a 99 m sentinel squeezes every real reading into a band a few pixels tall.
 
 ## What it does
 
@@ -23,15 +22,15 @@ Calls a sensor at a target rate for a fixed duration, stamping each reading with
 time since the start of the run. Reads that raise, return `None`, or return a non-finite
 value are replaced with a sentinel and logged as warnings; readings outside the plausible
 range are clamped. The result is written to CSV and plotted, with substituted samples
-marked so a bad sample can never be mistaken for a measurement.
+marked so a bad sample cannot be mistaken for a measurement.
 
-No hardware required — `sensor.py` simulates a rangefinder with Gaussian noise and a 5%
+No hardware is required. `sensor.py` simulates a rangefinder with Gaussian noise and a 5%
 failure rate, so the whole pipeline runs anywhere.
 
 ## Measured performance
 
-From the committed run in `results/` — 5.0 s target duration, 20 Hz target rate, 2.0 m
-simulated target:
+From the committed run in `results/`, at a 5.0 s target duration and a 20 Hz target rate
+against a 2.0 m simulated target:
 
 | Metric | Result |
 | --- | --- |
@@ -39,35 +38,33 @@ simulated target:
 | Mean sample rate | 20.00 Hz (mean and median interval both 50.0 ms) |
 | Interval accuracy | 97 of 99 intervals landed at exactly 50 ms |
 | Worst-case timing | one 69 ms interval at t = 2.15 s, immediately followed by a 31 ms interval |
-| Net drift from that hiccup | 0 ms — the two intervals sum to exactly 100 ms |
+| Net drift from that hiccup | 0 ms; the two intervals sum to exactly 100 ms |
 | Sensor read failures | 6 of 100 samples (6.0% observed, against a 5.0% injected rate) |
-| Failures that lost a sample | 0 — every failure produced a timestamped sentinel row |
+| Failures that lost a sample | 0; every failure produced a timestamped sentinel row |
 | Range clamps applied | 0 |
 | Valid readings | 94, mean 1.945 m and σ 1.015 m against a 2.0 m target with σ 1.0 configured |
 
-The timing row is the one worth reading twice. A single OS scheduling hiccup made the loop
-oversleep by 19 ms; the next sleep came back 19 ms short and the run returned to its
-original schedule with no accumulated error. That is the deadline design doing its job — a
-loop that slept a flat 50 ms each iteration would have kept those 19 ms permanently, and
-every subsequent timestamp would have been wrong by at least that much.
+The two outlying intervals are one OS scheduling hiccup. The loop overslept by 19 ms, the
+next sleep came back 19 ms short, and the run returned to its original schedule with no
+accumulated error. A loop that slept a flat 50 ms per iteration would have kept those 19 ms,
+and every timestamp after t = 2.15 s would have been late by at least that much.
 
 ## Design decision: a sentinel outside the valid range
 
-When a read fails, `reader.py` substitutes `DEFAULT = 99.0` m — a value deliberately placed
-outside the `[LO, HI] = [0, 10]` m clamp range, and deliberately *not* passed through the
-clamp that constrains real readings.
+When a read fails, `reader.py` substitutes `DEFAULT = 99.0` m. The value sits outside the
+`[LO, HI] = [0, 10]` m clamp range and is not passed through the clamp that constrains real
+readings.
 
-The alternatives are worse in a way that matters for unattended acquisition. Dropping the
-sample silently shortens the record and breaks the assumption that row *n* is 50 ms after
-row *n−1*. Carrying the last good value forward makes a dead sensor look like a stationary
-target — the failure mode that is hardest to notice and most expensive to discover later.
-Writing `NaN` is defensible, but it propagates through arithmetic and gets silently dropped
-by many downstream tools.
+I considered three alternatives. Dropping the sample shortens the record and breaks the
+assumption that row *n* is 50 ms after row *n−1*. Carrying the last good value forward makes
+a dead sensor look like a stationary target, which is hard to spot during a run and
+expensive to discover afterwards. Writing `NaN` is defensible, but it propagates through
+arithmetic and gets silently dropped by many downstream tools.
 
-A sentinel that cannot occur naturally means every substituted sample is recoverable from
-the CSV alone with `distance == 99.0`, which is exactly what `plotting.py` does to draw the
-markers in both panels. The record stays complete and self-describing: nothing is lost, and
-nothing that was invented can be mistaken for something that was measured.
+A sentinel that cannot occur naturally makes every substituted sample recoverable from the
+CSV alone with `distance == 99.0`, which is how `plotting.py` finds the markers for both
+panels. The record keeps its full sample count, and a substituted value cannot be read back
+as a measurement.
 
 ## Bug found and fixed: the loop that never returned
 
@@ -85,9 +82,9 @@ def run(duration, hz):
             time.sleep(sleep)
 ```
 
-It took a `duration` argument and never used it. The loop paced itself correctly at 20 Hz
-and ran forever, and because nothing was accumulated or returned, it produced no data even
-while running — it was a timer that looked like a logger.
+It accepted a `duration` argument and never used it. The loop paced itself correctly at
+20 Hz and ran until interrupted, and since nothing was accumulated or returned, it produced
+no data while doing so.
 
 The fix anchors a start time `t0`, bounds the loop on elapsed time against `duration`,
 accumulates `(timestamp, reading)` tuples in `rows`, and returns them
@@ -105,9 +102,9 @@ while time.perf_counter() - t0 < duration:
 return rows
 ```
 
-Keeping `next_t` separate from `t0` is what preserves the deadline behaviour: `t0` answers
-"when do I stop", `next_t` answers "when is the next sample due", and conflating them would
-have reintroduced the drift that the 69/31 ms recovery above shows the loop absorbing.
+The fix keeps `next_t` separate from `t0`. `t0` decides when the run stops; `next_t` decides
+when the next sample is due. Merging them would reintroduce the drift that the 69 ms / 31 ms
+recovery above shows the loop absorbing.
 
 ## Repository layout
 
@@ -138,4 +135,4 @@ sample. Run parameters live in `config.py`; the two chart themes are defined in
 ## Requirements
 
 - Python 3.8+
-- matplotlib — used by `plotting.py`
+- matplotlib (used by `plotting.py`)
